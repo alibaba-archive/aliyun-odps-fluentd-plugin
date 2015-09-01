@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Aliyun ODPS Plugin for Fluentd
 
 ## Getting Started
@@ -18,7 +17,7 @@ To get started using this plugin, you will need three things:
 Clone the project from gitlab:
 
 ```
-$ git clone git@gitlab.alibaba-inc.com:aliopensource/aliyun-odps-fluentd-plugin.git
+$ git clone git@github.com:aliopensource/aliyun-odps-fluentd-plugin.git
 ```
 
 Use gem to install dependency:
@@ -104,4 +103,3 @@ $ cp aliyun-odps-fluentd-plugin/lib/fluent/plugin/* {YOUR_FLUENTD_DIRECTORY}/lib
 licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html)
 =======
 # aliyun-odps-fluentd-plugin
->>>>>>> 5972a47ee92cdb7c480b6be917364089a83c257d
