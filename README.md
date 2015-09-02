@@ -12,12 +12,13 @@ To get started using this plugin, you will need three things:
 3. Fluentd-0.10.49 or later (*[Home Page](http://www.fluentd.org/)*)
 4. Protobuf-3.5.1 or later(Ruby protobuf)
 
-### Clone the Code
+### Install the Plugin
 
-Clone the project from gitlab:
+install the project from gem or github:
 
 ```
-$ git clone git@github.com:aliopensource/aliyun-odps-fluentd-plugin.git
+$ gem install aliyun-odps-fluentd-plugin
+$ git clone https://github.com/aliyun/aliyun-odps-fluentd-plugin.git
 ```
 
 Use gem to install dependency:
@@ -44,10 +45,11 @@ $ cp aliyun-odps-fluentd-plugin/lib/fluent/plugin/* {YOUR_FLUENTD_DIRECTORY}/lib
 <source>
    type tail
    path /opt/log/in/in.log
+   pos_file /opt/log/in/in.log.pos
    refresh_interval 5s
    tag in.log
-   format csv
-   keys dt,week,r1,r2,r3,r4,r5,r6,r7,blue
+   format /^(?<remote>[^ ]*) - - \[(?<datetime>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*) "-" "(?<agent>[^\"]*)"$/
+   time_format %Y%b%d %H:%M:%S %z
 </source>
 ```
 ```
@@ -63,27 +65,33 @@ $ cp aliyun-odps-fluentd-plugin/lib/fluent/plugin/* {YOUR_FLUENTD_DIRECTORY}/lib
   project your_projectName
   <table in.log>
 	table your_tableName
-	fields r1,r2,r3,r4,r5,r6,blue
-	partition ctime=${dt.strftime('%Y%m%d')}
+	fields remote,method,path,code,size,agent
+	partition ctime=${datetime.strftime('%Y%m%d')}
 	time_format %d/%b/%Y:%H:%M:%S %z
 	shard_number 1
   </table>
 </match>
 ```
-  1.The fields in match will match the key in source.\<br>
-  2.partition format:
-    1)fix string: partition ctime=20150804\<br>
-    2)key words: partition ctime=${dt.strftime('%Y%m%d')}\<br>
-  3.partition or time_format is optional:\<br>
-    1)if the odps table is partitioned, you need to set the param <partition>\<br>
-    2)if you are using the key words to set your <partition> and the key word is in time format,\<br>
-    please set the param <time_format>\<br>
-    example: source[dt] = "29/Aug/2015:11:10:16 +0800", and the param <time_format> is "%d/%b/%Y:%H:%M:%S %z"\<br>
-  4.shard_number:less than the number you set when create the hubtable.\<br>
-  5.buffer_chunk_limit:chunk size,¡°k¡± (KB), ¡°m¡± (MB), and ¡°g¡± (GB) £¬default 8MB£¬recommended number is 2MB.\<br>
-  6.buffer_queue_limit:buffer chunk size£¬example: buffer_chunk_limit2m£¬buffer_queue_limit 128£¬then the total buffer size is 2*128MB.\<br>
+### Parameters
 
-
+#### 1.The fields in match will match the key in source.
+#### 2.partition format:
+##### 1)fix string: partition ctime=20150804
+##### 2)key words: partition ctime=${remote}
+##### 3)key words int time format: partition ctime=${datetime.strftime('%Y%m%d')}
+#### 3.partition or time_format is optional:
+##### 1)if the odps table is partitioned, you need to set the param <partition>\<br>
+##### 2)if you are using the key words to set your <partition> and the key word is in time format, please set the param <time_format>. example: source[datetime] = "29/Aug/2015:11:10:16 +0800", and the param <time_format> is "%d/%b/%Y:%H:%M:%S %z"
+#### 4.shard_number(Optional):less than the number you set when create the hubtable.
+#### 5.buffer_chunk_limit(Optional):chunk size,¡°k¡± (KB), ¡°m¡± (MB), and ¡°g¡± (GB) £¬default 8MB£¬recommended number is 2MB.
+#### 6.buffer_queue_limit(Optional):buffer chunk size£¬example: buffer_chunk_limit2m£¬buffer_queue_limit 128£¬then the total buffer size is 2*128MB.
+#### 7.aliyun_odps_hub_endpoint(Required):if you are using ECS, set it as http://dh-ext.odps.aliyun-inc.com, otherwise using http://dh.odps.aliyun.com.
+#### 8.aliyun_odps_endpoint(Required):if you are using ECS, set it as http://odps-ext.aiyun-inc.com/api, otherwise using http://service.odps.aliyun.com/api .
+#### 9.aliyun_access_id(Required):your aliyun access id.
+#### 10.aliyun_access_key(Required):your aliyun access key.
+#### 11.project(Required):your project name.
+#### 12.table(Required):your table name.
+  
 ## Useful Links
 ---
 
@@ -101,5 +109,3 @@ $ cp aliyun-odps-fluentd-plugin/lib/fluent/plugin/* {YOUR_FLUENTD_DIRECTORY}/lib
 ---
 
 licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html)
-=======
-# aliyun-odps-fluentd-plugin

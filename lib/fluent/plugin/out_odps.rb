@@ -88,9 +88,6 @@ module Fluent
                                                  config[:aliyun_odps_endpoint],
                                                  config[:aliyun_odps_hub_endpoint],
                                                  config[:project])
-        if @shard_number<=0 or @shard_number>5
-          raise "the table "+ @table+"'s shard_number is must bewteen 1-5"
-        end
         if @record_batch_size<=0
           raise "the table "+ @table+"'s record_batch_size is must more than 0"
         end
