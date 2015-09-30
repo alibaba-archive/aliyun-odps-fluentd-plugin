@@ -77,10 +77,23 @@ module OdpsDatahub
     end
 
     def setDateTime(idx, value)
-      if value.is_a?Integer and value >= $DATETIME_MIN_TICKS and  value <=> $DATETIME_MAX_TICKS
+      if value.is_a?Integer and value >= $DATETIME_MIN_TICKS and  value <= $DATETIME_MAX_TICKS
         setValue(idx, value)
+      elsif value.is_a?DateTime or value.is_a?Time
+        if value.to_i*1000 >= $DATETIME_MIN_TICKS and  value.to_i*1000 <= $DATETIME_MAX_TICKS
+          setValue(idx, value.to_i*1000)
+        else
+          raise "DateTime out of range or value show be Integer and between -62135798400000 and 253402271999000."
+        end
+      elsif value.is_a?String
+        begin
+          tmpTime = Time.parse(value)
+          setValue(idx, tmpTime.to_i*1000)
+        rescue
+          raise "Parse string to datetime failed, string:" + value
+        end
       else
-        raise "DateTime out of range or value show be Integer"
+        raise "DateTime cell should be in Integer or Time or DateTime format."
       end
     end
 

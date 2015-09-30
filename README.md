@@ -8,10 +8,9 @@
 - ODPS-Open Data Processing Service is a massive data processing platform designed by alibaba.
 - DHS-ODPS DataHub Service is a service in Odps, which provides real-time upload and download functions for user.
 
-
 ### Requirements
 
-To get started using this plugin, you will need three things:
+To get started using this plugin, you will need these things:
 
 1. Ruby 2.1.0 or later
 2. Gem 2.4.5 or later
@@ -97,10 +96,9 @@ $ cp aliyun-odps-fluentd-plugin/lib/fluent/plugin/* {YOUR_FLUENTD_DIRECTORY}/lib
         - key words: partition ctime=${remote}
         - key words int time format: partition ctime=${datetime.strftime('%Y%m%d')}
 - time_format(Optional):
-    - if the odps table is partitioned, you need to set the param <partition>
     - if you are using the key words to set your <partition> and the key word is in time format, please set the param <time_format>. example: source[datetime] = "29/Aug/2015:11:10:16 +0800", and the param <time_format> is "%d/%b/%Y:%H:%M:%S %z"
 - shard_number(Optional):less than the number you set when create the hubtable.
-  
+
 ## Useful Links
 ---
 
