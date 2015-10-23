@@ -20,6 +20,7 @@ module OdpsDatahub
   $INVALID_ARGUMENT = "InvalidArgument"
   $SCHEMA_NOT_MATCH = "SchemaNotMatch"
   $PACK_SIZE_EXCEED = "PackSizeExceed"
+  $LOADSHARD_TIMEOUT = "LoadShardTimeOut"
   $ACCESS_DENIED = "AccessDenied"
 
   class OdpsDatahubException < StandardError

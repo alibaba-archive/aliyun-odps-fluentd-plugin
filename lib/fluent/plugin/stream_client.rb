@@ -87,6 +87,24 @@ module OdpsDatahub
       return json_obj["ShardStatus"]
     end
 
+    def waitForShardLoad(timeOut = 120) #seconds
+      if timeOut < 0
+        raise OdpsDatahubException.new($INVALID_ARGUMENT, "waitForShardLoad param invalid")
+      end
+      allLoaded = false
+      loadtime=0
+      while loadtime < timeOut do
+        if isShardLoadCompleted
+          return
+        end
+        sleep(5)
+        loadtime+=5
+      end
+      if !isShardLoadCompleted
+        raise OdpsDatahubException.new($LOADSHARD_TIMEOUT, "waitForShardLoad timeOut")
+      end
+    end
+
     def loadShard(idx)
       if idx < 0
         raise OdpsDatahubException.new($INVALID_ARGUMENT, "loadShard num invalid")
@@ -106,6 +124,16 @@ module OdpsDatahub
     protected
     def getResource
       return "/projects/" + @mProject + "/tables/" + @mTable
+    end
+
+    def isShardLoadCompleted
+      #get json like [{"ShardId": "0","State": "loaded"},{"ShardId": "1","State": "loaded"}]
+      getShardStatus.each { |shard|
+        if shard["State"] != "loaded"
+          return false
+        end
+      }
+      return true
     end
   end
 end

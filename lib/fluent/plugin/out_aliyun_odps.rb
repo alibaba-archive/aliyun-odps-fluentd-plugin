@@ -49,10 +49,9 @@ module Fluent
       config_param :fields, :string, :default => nil
       config_param :partition, :string, :default => nil
       config_param :num_retries, :integer, :default => 5
-      config_param :shard_number, :integer, :default => 1
+      config_param :shard_number, :integer, :default => 5
       config_param :thread_number, :integer, :default => 1
-      config_param :time_format, :string, :default => nil 
-      config_param :record_batch_size, :integer, :default => 10
+      config_param :time_format, :string, :default => nil
       config_param :time_out, :integer, :default => 300
       attr_accessor :partitionList
       attr_reader :client
@@ -88,34 +87,13 @@ module Fluent
                                                  config[:aliyun_odps_endpoint],
                                                  config[:aliyun_odps_hub_endpoint],
                                                  config[:project])
-        if @record_batch_size<=0
-          raise "the table "+ @table+"'s record_batch_size is must more than 0"
+        if @shard_number<=0
+          raise "shard number must more than 0"
         end
         begin
           @client = OdpsDatahub::StreamClient.new(odpsConfig, config[:project], @table)
           @client.loadShard(@shard_number)
-          allLoaded = false
-          loadtime=0
-          while !allLoaded do
-            count = 0
-            #get json like [{"ShardId": "0","State": "loaded"},{"ShardId": "1","State": "loaded"}]
-            @client.getShardStatus.each { |shard|
-              if shard["State"] != "loaded"
-                sleep(5)
-                loadtime+=5
-                break
-              else
-                count += 1
-              end
-              if count == @shard_number
-                allLoaded = true
-                @log.info "All shareds are loaded successfully"
-              end
-              if loadtime>=300
-                raise "Load shared timeout"
-              end
-            }
-          end
+          @client.waitForShardLoad
           for i in 0..@thread_number-1
             @writer[i] = @client.createStreamArrayWriter()
           end
@@ -269,13 +247,18 @@ module Fluent
             sendThread[thread].join
           end
         rescue => e
+          # reload shard
+          if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
+            @client.loadShard(@shard_number)
+            @client.waitForShardLoad
+          end
           # ignore other exceptions to use Fluentd retry
           raise "write records failed,"+e.message
         end
       end
 
       def close()
-        @client.loadShard(0)
+        #@client.loadShard(0)
       end
 
     end

@@ -101,7 +101,7 @@ module OdpsDatahub
       if value.is_a?String and value.length < $STRING_MAX_LENTH
         setValue(idx, value)
       else
-        raise "value show be String and len < #$STRING_MAX_LENTH"
+        raise "value show be String and len < " + $STRING_MAX_LENTH.to_s
       end
     end
 
