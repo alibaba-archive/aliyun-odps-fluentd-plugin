@@ -17,11 +17,12 @@
 #under the License.
 #
 module OdpsDatahub
-  $ODPS_BIGINT = "bigint"
-  $ODPS_DOUBLE = "double"
-  $ODPS_BOOLEAN = "boolean"
-  $ODPS_DATETIME = "datetime"
-  $ODPS_STRING = "string"
+  $ODPS_BIGINT = "bigint"	      #8字节有符号整型
+  $ODPS_DOUBLE = "double"	      #8字节双精度浮点型
+  $ODPS_BOOLEAN = "boolean"     #布尔型
+  $ODPS_DATETIME = "datetime"	  #日期类型，取值范围是0001-01-01 00:00:00 ~ 9999-12-31 23:59:59
+  $ODPS_STRING = "string"	    #字符串类型
+  $ODPS_DECIMAL = "decimal"	    #字符串类型
 
   class OdpsTableColumn
     attr_reader :mName, :mType, :mIdx

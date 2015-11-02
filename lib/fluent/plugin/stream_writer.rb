@@ -141,6 +141,8 @@ module OdpsDatahub
             record.setDouble(i, value[i])
           when $ODPS_STRING
             record.setString(i, value[i])
+          when $ODPS_DECIMAL
+            record.setDecimal(i, value[i])
           else
             raise OdpsDatahubException.new($INVALID_ARGUMENT, "unsupported schema type")
         end

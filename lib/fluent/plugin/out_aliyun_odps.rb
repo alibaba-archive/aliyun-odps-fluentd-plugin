@@ -249,6 +249,7 @@ module Fluent
         rescue => e
           # reload shard
           if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
+            @log.warn "write failed, msg:" + e.message
             @client.loadShard(@shard_number)
             @client.waitForShardLoad
           end

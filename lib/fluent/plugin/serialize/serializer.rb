@@ -120,6 +120,10 @@ module OdpsDatahub
                 crc32cRecord.update(cellValue)
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::LENGTH_DELIMITED, upStream)
                 upStream.write(encodeString(cellValue))
+              when $ODPS_DECIMAL
+                crc32cRecord.update(cellValue)
+                writeTag(col.mIdx + 1, ::Protobuf::WireType::LENGTH_DELIMITED, upStream)
+                upStream.write(encodeString(cellValue))
               else
                 raise OdpsDatahubException.new($INVALID_ARGUMENT, "invalid mType")
             end

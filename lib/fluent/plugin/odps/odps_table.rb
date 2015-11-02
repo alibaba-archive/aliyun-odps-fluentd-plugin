@@ -16,6 +16,7 @@
 #specific language governing permissions and limitations
 #under the License.
 #
+
 require 'rexml/document'
 require_relative 'xml_template'
 require_relative 'odps_table_schema'
@@ -56,22 +57,34 @@ module OdpsDatahub
     def setBigInt(idx, value)
       if value.is_a?Integer
         setValue(idx, value)
+      elsif value.is_a?String
+        setValue(idx, value.to_i)
       else
-        raise "value show be Integer"
+        raise "value show be Integer, idx:" + idx.to_s + " value:" + value.to_s
       end
     end
 
     def setDouble(idx, value)
       if value.is_a?Float
         setValue(idx, value)
+      elsif value.is_a?String
+        setValue(idx, value.to_f)
       else
-        raise "value show be Float"
+        raise "value show be Float, idx:" + idx.to_s + " value:" + value.to_s
       end
     end
 
     def setBoolean(idx, value)
-      if value != false and value != true
-        raise "value must be bool"
+      if value.is_a?String
+        if value == "true"
+          setValue(idx, true)
+        elsif value == "false"
+          setValue(idx, false)
+        else
+          raise "value must be true or false, idx:" + idx.to_s + " value:" + value.to_s
+        end
+      elsif value != false and value != true
+        raise "value must be bool or string[true,false], idx:" + idx.to_s + " value:" + value.to_s
       end
       setValue(idx, value)
     end
@@ -93,7 +106,19 @@ module OdpsDatahub
           raise "Parse string to datetime failed, string:" + value
         end
       else
-        raise "DateTime cell should be in Integer or Time or DateTime format."
+        raise "DateTime cell should be in Integer or Time or DateTime format, idx:" + idx.to_s + " value:" + value.to_s
+      end
+    end
+
+    def setDecimal(idx, value)
+      if value.is_a?String
+        setValue(idx, value)
+      elsif value.is_a?Float
+          setValue(idx, value.to_s)
+      elsif value.is_a?BigDecimal
+        setValue(idx, value.to_s)
+      else
+        raise "value can not be convert to decimal, idx:" + idx.to_s + " value:" + value.to_s
       end
     end
 
@@ -101,14 +126,14 @@ module OdpsDatahub
       if value.is_a?String and value.length < $STRING_MAX_LENTH
         setValue(idx, value)
       else
-        raise "value show be String and len < " + $STRING_MAX_LENTH.to_s
+        raise "value show be String and len < " + $STRING_MAX_LENTH.to_s + ", idx:" + idx.to_s + " value:" + value.to_s
       end
     end
 
     private
     def setValue(idx, value)
       if idx < 0 or idx >= @mSchema.getColumnCount
-        raise "idx out of range"
+        raise "idx out of range, idx:" + idx.to_s + " value:" + value.to_s
       end
       @mValues[idx] = value
     end
