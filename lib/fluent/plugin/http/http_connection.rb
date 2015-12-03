@@ -16,6 +16,7 @@
 #specific language governing permissions and limitations
 #under the License.
 #
+
 require 'net/http'
 require 'base64'
 require 'openssl'

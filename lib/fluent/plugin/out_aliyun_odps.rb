@@ -35,6 +35,7 @@ module Fluent
     config_param :aliyun_odps_hub_endpoint, :string, :default => nil
     config_param :project, :string, :default => nil
     config_param :format, :string, :default => 'out_file'
+    config_param :enable_fast_crc, :bool, :default => false
 
     attr_accessor :tables
 
@@ -299,6 +300,10 @@ module Fluent
           :aliyun_odps_endpoint => @aliyun_odps_endpoint,
           :aliyun_odps_hub_endpoint => @aliyun_odps_hub_endpoint,
       }
+      #init Global setting
+      if (@enable_fast_crc)
+        OdpsDatahub::OdpsConfig::setFastCrc(true)
+      end
       #初始化各个table object
       @tables.each { |te|
         te.init(config)

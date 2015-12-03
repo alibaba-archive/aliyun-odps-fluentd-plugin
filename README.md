@@ -98,6 +98,7 @@ $ cp aliyun-odps-fluentd-plugin/lib/fluent/plugin/* {YOUR_FLUENTD_DIRECTORY}/lib
 - time_format(Optional):
     - if you are using the key words to set your <partition> and the key word is in time format, please set the param <time_format>. example: source[datetime] = "29/Aug/2015:11:10:16 +0800", and the param <time_format> is "%d/%b/%Y:%H:%M:%S %z"
 - shard_number(Optional): will write data to shards between [0,shard_number-1], this config must more than 0 and less than the max shard number of your table.
+- enable_fast_crc(Optional): use fast crc.so to calculate crc, this will improve speed up a lot, but this is not supported in some os.
 
 ## Useful Links
 ---

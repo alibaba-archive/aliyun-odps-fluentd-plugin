@@ -225,7 +225,7 @@ module OdpsDatahub
 
       res = conn.getResponse
       if res.code != '200'
-        raise "Add partition failed with error" + res.code.to_s
+        raise "Add partition failed with error " + res.body
       end
 
       if res.to_hash['Content-Length'] != "0" and not res.body.to_s.include?"Instance"

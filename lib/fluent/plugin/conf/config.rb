@@ -17,6 +17,7 @@
 #under the License.
 #
 module OdpsDatahub
+  $USE_FAST_CRC = false
   class OdpsConfig
     attr_accessor :accessId, :accessKey, :odpsEndpoint, :datahubEndpoint, :defaultProjectName, :userAgent
 
@@ -27,6 +28,10 @@ module OdpsDatahub
       @datahubEndpoint = datahubEndpoint
       @defaultProject = defaultProjectName
       @userAgent = ""
+    end
+
+    def self.setFastCrc(value)
+      $USE_FAST_CRC = value
     end
   end
 end

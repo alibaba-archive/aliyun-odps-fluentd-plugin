@@ -18,7 +18,7 @@
 #
 require 'stringio'
 require 'protobuf'
-require_relative '../digest/crc32c'
+require_relative '../crc/origin/crc32c'
 require_relative '../odps/odps_table'
 
 module OdpsDatahub

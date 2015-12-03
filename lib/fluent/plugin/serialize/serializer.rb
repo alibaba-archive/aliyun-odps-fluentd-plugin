@@ -19,7 +19,7 @@
 require 'stringio'
 require 'protobuf'
 require_relative '../exceptions'
-require_relative '../digest/crc32c'
+require_relative '../crc/crc'
 require_relative '../odps/odps_table'
 
 module OdpsDatahub
@@ -87,10 +87,10 @@ module OdpsDatahub
     end
 
     def serialize(upStream, recordList)
-      crc32cPack = ::Digest::CRC32c.new
+      crc32cPack = StringIO.new
       if recordList.is_a?Array
         recordList.each { |record|
-          crc32cRecord = ::Digest::CRC32c.new
+          crc32cRecord = StringIO.new
           schema = OdpsTableSchema.new
           schema = record.getTableSchema
           schema.mCols.each { | col |
@@ -98,45 +98,45 @@ module OdpsDatahub
             if cellValue == nil
               next
             end
-            crc32cRecord.update(encodeFixed32(col.mIdx + 1))
+            crc32cRecord.write(encodeFixed32(col.mIdx + 1))
             case col.mType
               when $ODPS_BIGINT
-                crc32cRecord.update(encodeFixed64(cellValue))
+                crc32cRecord.write(encodeFixed64(cellValue))
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::VARINT, upStream)
                 upStream.write(encodeSInt64(cellValue))
               when $ODPS_DOUBLE
-                crc32cRecord.update(encodeDouble(cellValue))
+                crc32cRecord.write(encodeDouble(cellValue))
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::FIXED64, upStream)
                 upStream.write(encodeDouble(cellValue))
               when $ODPS_BOOLEAN
-                crc32cRecord.update(encodeBool(cellValue))
+                crc32cRecord.write(encodeBool(cellValue))
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::VARINT, upStream)
                 upStream.write(encodeBool(cellValue))
               when $ODPS_DATETIME
-                crc32cRecord.update(encodeFixed64(cellValue))
+                crc32cRecord.write(encodeFixed64(cellValue))
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::VARINT, upStream)
                 upStream.write(encodeDataTime(cellValue))
               when $ODPS_STRING
-                crc32cRecord.update(cellValue)
+                crc32cRecord.write(cellValue)
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::LENGTH_DELIMITED, upStream)
                 upStream.write(encodeString(cellValue))
               when $ODPS_DECIMAL
-                crc32cRecord.update(cellValue)
+                crc32cRecord.write(cellValue)
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::LENGTH_DELIMITED, upStream)
                 upStream.write(encodeString(cellValue))
               else
                 raise OdpsDatahubException.new($INVALID_ARGUMENT, "invalid mType")
             end
           }
-          recordCrc = crc32cRecord.checksum.to_i
+          recordCrc = CrcCalculator::calculate(crc32cRecord)
           writeTag($TUNNEL_END_RECORD, ::Protobuf::WireType::VARINT, upStream)
           upStream.write(encodeUInt32(recordCrc))
-          crc32cPack.update(encodeFixed32(recordCrc))
+          crc32cPack.write(encodeFixed32(recordCrc))
         }
         writeTag($TUNNEL_META_COUNT, ::Protobuf::WireType::VARINT, upStream)
         upStream.write(encodeSInt64(recordList.size))
         writeTag($TUNNEL_META_CHECKSUM, ::Protobuf::WireType::VARINT, upStream)
-        upStream.write(encodeUInt32(crc32cPack.checksum))
+        upStream.write(encodeUInt32(CrcCalculator::calculate(crc32cPack)))
       else
         raise OdpsDatahubException.new($INVALID_ARGUMENT, "param must be a array")
       end

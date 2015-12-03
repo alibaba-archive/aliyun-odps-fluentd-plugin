@@ -4,3 +4,5 @@ Fix datetime format bug, support String, DateTime, Time type when write to a dat
 Add reload shard when import fails, and remove unload shard operation when shut down.
 0.0.6
 Add decimal support£¬fix string input while setting double and int.
+0.0.7
+Add error msg when add partition fail, support fast crc£¬ remove pack size limit.

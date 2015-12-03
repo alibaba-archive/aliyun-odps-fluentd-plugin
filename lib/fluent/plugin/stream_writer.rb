@@ -93,7 +93,7 @@ module OdpsDatahub
       upStream = Zlib::Deflate.deflate(@mUpStream.string)
       header[$CONTENT_MD5] = Digest::MD5.hexdigest(upStream)
       header[$CONTENT_LENGTH] = upStream.length.to_s
-      #MAX_LENGTH 2048KB
+      #MAX_LENGTH 2048*10KB
       if upStream.length > $MAX_PACK_SIZE
         raise OdpsDatahubException.new($PACK_SIZE_EXCEED, "pack size:" + upStream.length.to_s)
       end
@@ -109,6 +109,7 @@ module OdpsDatahub
       if res.code != "200"
         raise OdpsDatahubException.new(json_obj["Code"], "write failed because " + json_obj["Message"])
       end
+      return json_obj
     end
 
     private
