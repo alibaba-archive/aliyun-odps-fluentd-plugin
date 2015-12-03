@@ -16,6 +16,7 @@ To get started using this plugin, you will need these things:
 2. Gem 2.4.5 or later
 3. Fluentd-0.10.49 or later (*[Home Page](http://www.fluentd.org/)*)
 4. Protobuf-3.5.1 or later(Ruby protobuf)
+5. Ruby-devel
 
 ### Install the Plugin
 
