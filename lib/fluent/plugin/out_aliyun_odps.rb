@@ -53,6 +53,9 @@ module Fluent
       config_param :shard_number, :integer, :default => 5
       config_param :thread_number, :integer, :default => 1
       config_param :time_format, :string, :default => nil
+      config_param :retry_time, :integer, :default => 3
+      config_param :retry_interval, :integer, :default => 1
+      config_param :abandon_mode, :bool, :default => false
       config_param :time_out, :integer, :default => 300
       attr_accessor :partitionList
       attr_reader :client
@@ -64,7 +67,6 @@ module Fluent
         super()
         @pattern = MatchPattern.create(pattern)
         @log = log
-        @writer = Array.new
       end
 
       #初始化数据
@@ -95,9 +97,6 @@ module Fluent
           @client = OdpsDatahub::StreamClient.new(odpsConfig, config[:project], @table)
           @client.loadShard(@shard_number)
           @client.waitForShardLoad
-          for i in 0..@thread_number-1
-            @writer[i] = @client.createStreamArrayWriter()
-          end
           partitionMaps=@client.getPartitionList
           @partitionList=[]
           for map in partitionMaps do
@@ -144,9 +143,9 @@ module Fluent
                         partition_name+=","+partition_column+"="+partition_value
                       end
                     else
-                      raise "partition has no corresponding source key or the partition expression is wrong,"+data
+                      raise "partition has no corresponding source key or the partition expression is wrong,"+data.data.to_s
                     end
-                  else
+                  elsif p.include? "=${"
                     key=p[p.index("{")+1, p.index("}")-1-p.index("{")]
                     partition_column=p[0, p.index("=")]
                     if data.has_key?(key)
@@ -157,7 +156,13 @@ module Fluent
                         partition_name+=","+partition_column+"="+partition_value
                       end
                     else
-                      raise "partition has no corresponding source key or the partition expression is wrong,"+data
+                      raise "partition has no corresponding source key or the partition expression is wrong,"+data.to_s
+                    end
+                  else
+                    if i==1
+                      partition_name+=p
+                    else
+                      partition_name+=","+p
                     end
                   end
                   i+=1
@@ -175,7 +180,7 @@ module Fluent
             end
 
           rescue => e
-            raise "Failed to format the data:"+e.message
+            raise "Failed to format the data:"+e.backtrace.inspect.to_s
           end
         }
 
@@ -184,7 +189,6 @@ module Fluent
           sendThread = Array.new
           unless @partition.blank? then
             partitions.each { |k, v|
-              @log.info k
               #if the partition is not exist, create one
               unless @partitionList.include?(k)
                 @client.addPartition(k)
@@ -194,7 +198,7 @@ module Fluent
             }
             for thread in 0..@thread_number-1
               sendThread[thread] = Thread.start(thread) do |threadId|
-                retryTime = 0
+                retryTime = @retry_time
                 begin
                   partitions.each { |k, v|
                     sendCount = v.size/@thread_number
@@ -202,17 +206,27 @@ module Fluent
                     if threadId == @thread_number-1
                       restCount = v.size%@thread_number
                     end
-                    @writer[threadId].write(v[sendCount*threadId..sendCount*(threadId+1)+restCount-1], k)
+                    @client.createStreamArrayWriter().write(v[sendCount*threadId..sendCount*(threadId+1)+restCount-1], k)
                     @log.info "Successfully  import "+(sendCount+restCount).to_s+" data to partition:"+k+",table:"+@table+" at threadId:"+threadId.to_s
                   }
                 rescue => e
+                  # reload shard
+                  if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
+                    @log.warn "write failed, msg:" + e.message + ", reload shard."
+                    @client.loadShard(@shard_number)
+                    @client.waitForShardLoad
+                  end
                   if retryTime > 0
-                    @log.info "Fail to write, retry in 2sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
-                    sleep(2)
+                    @log.warn "Fail to write, retry in " + @retry_interval +"sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
+                    sleep(@retry_interval)
                     retryTime -= 1
                     retry
                   else
-                    raise e
+                    if (@abandon_mode)
+                      @log.error "Retry failed, abandon this pack. Msg:" + e.message
+                    else
+                      raise e
+                    end
                   end
                 end
               end
@@ -221,7 +235,7 @@ module Fluent
             @log.info records.size.to_s+" records to be sent"
             for thread in 0..@thread_number-1
               sendThread[thread] = Thread.start(thread) do |threadId|
-                retryTime = 0
+                retryTime = @retry_time
                 #send data from sendCount*threadId to sendCount*(threadId+1)-1
                 sendCount = records.size/@thread_number
                 restCount = 0
@@ -229,16 +243,26 @@ module Fluent
                   restCount = records.size%@thread_number
                 end
                 begin
-                  @writer[threadId].write(records[sendCount*threadId..sendCount*(threadId+1)+restCount-1])
+                  @client.createStreamArrayWriter().write(records[sendCount*threadId..sendCount*(threadId+1)+restCount-1])
                   @log.info "Successfully import "+(sendCount+restCount).to_s+" data to table:"+@table+" at threadId:"+threadId.to_s
                 rescue => e
+                  # reload shard
+                  if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
+                    @log.warn "write failed, msg:" + e.message + ", reload shard."
+                    @client.loadShard(@shard_number)
+                    @client.waitForShardLoad
+                  end
                   if retryTime > 0
-                    @log.info "Fail to write, retry in 2sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
-                    sleep(2)
+                    @log.warn "Fail to write, retry in " + @retry_interval +"sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
+                    sleep(@retry_interval)
                     retryTime -= 1
                     retry
                   else
-                    raise e 
+                    if (@abandon_mode)
+                      @log.error "Retry failed, abandon this pack. Msg:" + e.message
+                    else
+                      raise e
+                    end
                   end
                 end
               end
@@ -248,14 +272,8 @@ module Fluent
             sendThread[thread].join
           end
         rescue => e
-          # reload shard
-          if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
-            @log.warn "write failed, msg:" + e.message
-            @client.loadShard(@shard_number)
-            @client.waitForShardLoad
-          end
           # ignore other exceptions to use Fluentd retry
-          raise "write records failed,"+e.message
+          raise "write records failed,"+e.backtrace.inspect.to_s
         end
       end
 
@@ -303,6 +321,11 @@ module Fluent
       #init Global setting
       if (@enable_fast_crc)
         OdpsDatahub::OdpsConfig::setFastCrc(true)
+        begin
+          OdpsDatahub::CrcCalculator::calculate(StringIO.new(""))
+        rescue => e
+          raise e.to_s
+        end
       end
       #初始化各个table object
       @tables.each { |te|

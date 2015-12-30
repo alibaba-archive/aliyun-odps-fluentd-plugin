@@ -62,7 +62,7 @@ module OdpsDatahub
 
     def encodeString(value)
       value_to_encode = value.dup
-      value_to_encode.encode!(::Protobuf::Field::StringField::ENCODING, :invalid => :replace, :undef => :replace, :replace => "")
+      #value_to_encode.encode!(::Protobuf::Field::StringField::ENCODING, :invalid => :replace, :undef => :replace, :replace => "")
       value_to_encode.force_encoding(::Protobuf::Field::BytesField::BYTES_ENCODING)
       string_bytes = ::Protobuf::Field::VarintField.encode(value_to_encode.size)
       string_bytes << value_to_encode

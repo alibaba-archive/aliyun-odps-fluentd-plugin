@@ -85,9 +85,10 @@ $ cp aliyun-odps-fluentd-plugin/lib/fluent/plugin/* {YOUR_FLUENTD_DIRECTORY}/lib
 - aliyun_access_key(Required):your aliyun access key.
 - aliyun_odps_hub_endpoint(Required):if you are using ECS, set it as http://dh-ext.odps.aliyun-inc.com, otherwise using http://dh.odps.aliyun.com.
 - aliyunodps_endpoint(Required):if you are using ECS, set it as http://odps-ext.aiyun-inc.com/api, otherwise using http://service.odps.aliyun.com/api .
-- buffer_chunk_limit(Optional):chunk size,¡°k¡± (KB), ¡°m¡± (MB), and ¡°g¡± (GB) £¬default 8MB£¬recommended number is 2MB.
+- buffer_chunk_limit(Optional):chunk size,¡°k¡± (KB), ¡°m¡± (MB), and ¡°g¡± (GB) £¬default 8MB£¬recommended number is 2MB£¬ max size is 20MB.
 - buffer_queue_limit(Optional):buffer chunk size£¬example: buffer_chunk_limit2m£¬buffer_queue_limit 128£¬then the total buffer size is 2*128MB.
 - flush_interval(Optional):interval to flush data buffer, default 60s.
+- abandon_mode(Optional):drop pack after retry 3 times.
 - project(Required):your project name.
 - table(Required):your table name.
 - fields(Required): must match the keys in source.
