@@ -97,15 +97,6 @@ module Fluent
           @client = OdpsDatahub::StreamClient.new(odpsConfig, config[:project], @table)
           @client.loadShard(@shard_number)
           @client.waitForShardLoad
-          partitionMaps=@client.getPartitionList
-          @partitionList=[]
-          for map in partitionMaps do
-            partitionName=''
-            map.each { |k, v|
-              partitionName+=k+"="+v+","
-            }
-            @partitionList<<partitionName.chomp(",")
-          end
         rescue => e
           raise "loadShard failed,"+e.message
         end
@@ -180,7 +171,7 @@ module Fluent
             end
 
           rescue => e
-            raise "Failed to format the data:"+e.backtrace.inspect.to_s
+            raise "Failed to format the data:"+ e.message + " " +e.backtrace.inspect.to_s
           end
         }
 
@@ -188,19 +179,11 @@ module Fluent
           #multi thread
           sendThread = Array.new
           unless @partition.blank? then
-            partitions.each { |k, v|
-              #if the partition is not exist, create one
-              unless @partitionList.include?(k)
-                @client.addPartition(k)
-                @partitionList << k
-                @log.info "add partition "+k
-              end
-            }
             for thread in 0..@thread_number-1
               sendThread[thread] = Thread.start(thread) do |threadId|
-                retryTime = @retry_time
-                begin
-                  partitions.each { |k, v|
+                partitions.each { |k, v|
+                  retryTime = @retry_time
+                  begin
                     sendCount = v.size/@thread_number
                     restCount = 0
                     if threadId == @thread_number-1
@@ -208,27 +191,34 @@ module Fluent
                     end
                     @client.createStreamArrayWriter().write(v[sendCount*threadId..sendCount*(threadId+1)+restCount-1], k)
                     @log.info "Successfully  import "+(sendCount+restCount).to_s+" data to partition:"+k+",table:"+@table+" at threadId:"+threadId.to_s
-                  }
-                rescue => e
-                  # reload shard
-                  if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
-                    @log.warn "write failed, msg:" + e.message + ", reload shard."
-                    @client.loadShard(@shard_number)
-                    @client.waitForShardLoad
-                  end
-                  if retryTime > 0
-                    @log.warn "Fail to write, retry in " + @retry_interval +"sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
-                    sleep(@retry_interval)
-                    retryTime -= 1
-                    retry
-                  else
-                    if (@abandon_mode)
-                      @log.error "Retry failed, abandon this pack. Msg:" + e.message
+                  rescue => e
+                    # reload shard
+                    if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
+                      @log.warn "write failed, msg:" + e.message + ", reload shard."
+                      @client.loadShard(@shard_number)
+                      @client.waitForShardLoad
+                    elsif e.message.include? "NoSuchPartition"
+                      begin
+                        @client.addPartition(k)
+                        @log.info "add partition "+ k
+                      rescue => ex
+                        @log.error "add partition failed"+ ex.message
+                      end
+                    end
+                    if retryTime > 0
+                      @log.warn "Fail to write, retry in " + @retry_interval.to_s + "sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
+                      sleep(@retry_interval)
+                      retryTime -= 1
+                      retry
                     else
-                      raise e
+                      if (@abandon_mode)
+                        @log.error "Retry failed, abandon this pack. Msg:" + e.message
+                      else
+                        raise e
+                      end
                     end
                   end
-                end
+                }
               end
             end
           else
@@ -253,7 +243,7 @@ module Fluent
                     @client.waitForShardLoad
                   end
                   if retryTime > 0
-                    @log.warn "Fail to write, retry in " + @retry_interval +"sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
+                    @log.warn "Fail to write, retry in " + @retry_interval.to_s + "sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
                     sleep(@retry_interval)
                     retryTime -= 1
                     retry
@@ -273,7 +263,7 @@ module Fluent
           end
         rescue => e
           # ignore other exceptions to use Fluentd retry
-          raise "write records failed,"+e.backtrace.inspect.to_s
+          raise "write records failed," + e.message + " " +e.backtrace.inspect.to_s
         end
       end
 
