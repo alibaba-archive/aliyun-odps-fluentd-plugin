@@ -78,29 +78,28 @@ module OdpsDatahub
       param[$PARAM_RECORD_COUNT] = @mRecordList.size.to_s
       header[$CONTENT_ENCODING] = "deflate"
       header[$CONTENT_TYPE] = "application/octet-stream"
-=begin version 4
+      # version 4
       pack = OdpsDatahub::XStreamPack.new
       pack.pack_data = Zlib::Deflate.deflate(@mUpStream.string)
       pack.pack_meta = ""
-      upstream = ::StringIO.new
-      pack.serialize_to(upstream)
-      header[$CONTENT_MD5] = Digest::MD5.hexdigest(upstream.string)
-      header[$CONTENT_LENGTH] = upstream.length.to_s
+      upStream = ::StringIO.new
+      pack.serialize_to(upStream)
+      header[$CONTENT_MD5] = Digest::MD5.hexdigest(upStream.string)
+      header[$CONTENT_LENGTH] = upStream.string.length.to_s
 
-      conn = HttpConnection.new(@mOdpsConfig, header, param, @mPath + "/shards/" + @mShardId.to_s, "PUT", upstream)
-=end
-      #version 3
+=begin version 3
       upStream = Zlib::Deflate.deflate(@mUpStream.string)
       header[$CONTENT_MD5] = Digest::MD5.hexdigest(upStream)
       header[$CONTENT_LENGTH] = upStream.length.to_s
+=end
       #MAX_LENGTH 2048*10KB
       if upStream.length > $MAX_PACK_SIZE
-        raise OdpsDatahubException.new($PACK_SIZE_EXCEED, "pack size:" + upStream.length.to_s)
+        raise OdpsDatahubException.new($PACK_SIZE_EXCEED, "pack size:" + upStream.string.length.to_s)
       end
       if @mShardId != nil
-        conn = HttpConnection.new(@mOdpsConfig, header, param, @mPath + "/shards/" + @mShardId.to_s, "PUT", upStream)
+        conn = HttpConnection.new(@mOdpsConfig, header, param, @mPath + "/shards/" + @mShardId.to_s, "PUT", upStream.string)
       else
-        conn = HttpConnection.new(@mOdpsConfig, header, param, @mPath + "/shards", "PUT", upStream)
+        conn = HttpConnection.new(@mOdpsConfig, header, param, @mPath + "/shards", "PUT", upStream.string)
       end
 
       reload

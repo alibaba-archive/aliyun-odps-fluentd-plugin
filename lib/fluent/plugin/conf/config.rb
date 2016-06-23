@@ -18,6 +18,7 @@
 #
 module OdpsDatahub
   $USE_FAST_CRC = false
+  $DATA_ENCODE = nil
   class OdpsConfig
     attr_accessor :accessId, :accessKey, :odpsEndpoint, :datahubEndpoint, :defaultProjectName, :userAgent
 
@@ -32,6 +33,14 @@ module OdpsDatahub
 
     def self.setFastCrc(value)
       $USE_FAST_CRC = value
+    end
+
+    def self.setEncode(value)
+      if ["US-ASCII", "ASCII-8BIT", "UTF-8", "ISO-8859-1", "Shift_JIS", "EUC-JP", "Windows-31J", "BINARY", "CP932", "eucJP"].include?(value)
+        $DATA_ENCODE = value
+      else
+        raise "Unsupported encoding type."
+      end
     end
   end
 end

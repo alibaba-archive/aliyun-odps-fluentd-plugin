@@ -46,7 +46,7 @@ module OdpsDatahub
         when /solaris|bsd/
           "unix"
         else
-          raise Error::WebDriverError, "unspport os"
+          raise "unspport os"
       end
     end
   end

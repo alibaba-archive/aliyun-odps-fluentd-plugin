@@ -17,7 +17,7 @@
 #under the License.
 #
 module OdpsDatahub
-  $SDK_UA_STR = "ODPS Ruby SDK v0.1"
+  $SDK_UA_STR = "ODPS Ruby SDK v0.1.2"
   $MAX_PACK_SIZE = 2048*10*1024
   class HttpHeaders
     $AUTHORIZATION = "Authorization"

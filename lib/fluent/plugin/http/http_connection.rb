@@ -65,7 +65,7 @@ module OdpsDatahub
       @mHeader[$DATE] = Time.now.utc.strftime("%a, %d %b %Y %H:%M:%S GMT")
       if not @mIsOdpsUrl
         @mHeader[$TUNNEL_STREAM_VERSION] = "1"
-        @mHeader[$TUNNEL_VERSION] = "3"
+        @mHeader[$TUNNEL_VERSION] = "4"
       end
       @mHeader[$USER_AGENT] = $SDK_UA_STR + @mOdpsConfig.userAgent
       @mHeader[$AUTHORIZATION] = signAuthorization

@@ -61,11 +61,9 @@ module OdpsDatahub
     end
 
     def encodeString(value)
-      value_to_encode = value.dup
-      #value_to_encode.encode!(::Protobuf::Field::StringField::ENCODING, :invalid => :replace, :undef => :replace, :replace => "")
-      value_to_encode.force_encoding(::Protobuf::Field::BytesField::BYTES_ENCODING)
-      string_bytes = ::Protobuf::Field::VarintField.encode(value_to_encode.size)
-      string_bytes << value_to_encode
+      value.force_encoding(::Protobuf::Field::BytesField::BYTES_ENCODING)
+      string_bytes = ::Protobuf::Field::VarintField.encode(value.size)
+      string_bytes << value
     end
 
     def encodeFixed64(value)
@@ -117,13 +115,20 @@ module OdpsDatahub
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::VARINT, upStream)
                 upStream.write(encodeDataTime(cellValue))
               when $ODPS_STRING
+                if $DATA_ENCODE != nil
+                  cellValue.encode!(::Protobuf::Field::StringField::ENCODING, $DATA_ENCODE)
+                else
+                  cellValue.encode!(::Protobuf::Field::StringField::ENCODING)
+                end
+                encode_str = encodeString(cellValue)
                 crc32cRecord.write(cellValue)
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::LENGTH_DELIMITED, upStream)
-                upStream.write(encodeString(cellValue))
+                upStream.write(encode_str)
               when $ODPS_DECIMAL
+                encode_str = encodeString(cellValue)
                 crc32cRecord.write(cellValue)
                 writeTag(col.mIdx + 1, ::Protobuf::WireType::LENGTH_DELIMITED, upStream)
-                upStream.write(encodeString(cellValue))
+                upStream.write(encode_str)
               else
                 raise OdpsDatahubException.new($INVALID_ARGUMENT, "invalid mType")
             end

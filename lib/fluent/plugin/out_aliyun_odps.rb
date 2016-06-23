@@ -36,6 +36,7 @@ module Fluent
     config_param :project, :string, :default => nil
     config_param :format, :string, :default => 'out_file'
     config_param :enable_fast_crc, :bool, :default => false
+    config_param :data_encoding, :string, :default => nil
 
     attr_accessor :tables
 
@@ -110,66 +111,73 @@ module Fluent
           begin
             #if partition is not empty
             unless @partition.blank? then
-              #if partition has params in it
-              if @partition.include? "=${"
-                #split partition
-                partition_arrays=@partition.split(',')
-                partition_name=''
-                i=1
-                for p in partition_arrays do
-                  #if partition is time formated
-                  if p.include? "strftime"
-                    key=p[p.index("{")+1, p.index(".strftime")-1-p.index("{")]
-                    partition_column=p[0, p.index("=")]
-                    timeFormat=p[p.index("(")+2, p.index(")")-3-p.index("(")]
-                    if data.has_key?(key)
-                      if time_format == nil
-                        partition_value=Time.parse(data[key]).strftime(timeFormat)
+              begin
+                #if partition has params in it
+                if @partition.include? "=${"
+                  #split partition
+                  partition_arrays=@partition.split(',')
+                  partition_name=''
+                  i=1
+                  for p in partition_arrays do
+                    #if partition is time formated
+                    if p.include? "strftime"
+                      key=p[p.index("{")+1, p.index(".strftime")-1-p.index("{")]
+                      partition_column=p[0, p.index("=")]
+                      timeFormat=p[p.index("(")+2, p.index(")")-3-p.index("(")]
+                      if data.has_key?(key)
+                        if time_format == nil
+                          partition_value=Time.parse(data[key]).strftime(timeFormat)
+                        else
+                          partition_value=Time.strptime(data[key], time_format).strftime(timeFormat)
+                        end
+                        if i==1
+                          partition_name+=partition_column+"="+partition_value
+                        else
+                          partition_name+=","+partition_column+"="+partition_value
+                        end
                       else
-                        partition_value=Time.strptime(data[key], time_format).strftime(timeFormat)
+                        raise "partition has no corresponding source key or the partition expression is wrong,"+data.to_s
                       end
+                    elsif p.include? "=${"
+                      key=p[p.index("{")+1, p.index("}")-1-p.index("{")]
+                      partition_column=p[0, p.index("=")]
+                      if data.has_key?(key)
+                        partition_value=data[key]
+                        if i==1
+                          partition_name+=partition_column+"="+partition_value
+                        else
+                          partition_name+=","+partition_column+"="+partition_value
+                        end
+                      else
+                        raise "partition has no corresponding source key or the partition expression is wrong,"+data.to_s
+                      end
+                    else
                       if i==1
-                        partition_name+=partition_column+"="+partition_value
+                        partition_name+=p
                       else
-                        partition_name+=","+partition_column+"="+partition_value
+                        partition_name+=","+p
                       end
-                    else
-                      raise "partition has no corresponding source key or the partition expression is wrong,"+data.data.to_s
                     end
-                  elsif p.include? "=${"
-                    key=p[p.index("{")+1, p.index("}")-1-p.index("{")]
-                    partition_column=p[0, p.index("=")]
-                    if data.has_key?(key)
-                      partition_value=data[key]
-                      if i==1
-                        partition_name+=partition_column+"="+partition_value
-                      else
-                        partition_name+=","+partition_column+"="+partition_value
-                      end
-                    else
-                      raise "partition has no corresponding source key or the partition expression is wrong,"+data.to_s
-                    end
-                  else
-                    if i==1
-                      partition_name+=p
-                    else
-                      partition_name+=","+p
-                    end
+                    i+=1
                   end
-                  i+=1
+                else
+                  partition_name=@partition
                 end
-              else
-                partition_name=@partition
+                if partitions[partition_name]==nil
+                  partitions[partition_name]=[]
+                end
+                partitions[partition_name] << @format_proc.call(data)
+              rescue => ex
+                if (@abandon_mode)
+                  @log.error "Format partition failed, abandon this record. Msg:" +ex.message + " Table:" + @table
+                  @log.error "Drop data:" + data.to_s
+                else
+                  raise ex
+                end
               end
-              if partitions[partition_name]==nil
-                partitions[partition_name]=[]
-              end
-              partitions[partition_name] << @format_proc.call(data)
-
             else
               records << @format_proc.call(data)
             end
-
           rescue => e
             raise "Failed to format the data:"+ e.message + " " +e.backtrace.inspect.to_s
           end
@@ -190,29 +198,31 @@ module Fluent
                       restCount = v.size%@thread_number
                     end
                     @client.createStreamArrayWriter().write(v[sendCount*threadId..sendCount*(threadId+1)+restCount-1], k)
-                    @log.info "Successfully  import "+(sendCount+restCount).to_s+" data to partition:"+k+",table:"+@table+" at threadId:"+threadId.to_s
+                    @log.info "Successfully import "+(sendCount+restCount).to_s+" data to partition:"+k+",table:"+@table+" at threadId:"+threadId.to_s
                   rescue => e
+                    @log.warn "Fail to write, error at threadId:"+threadId.to_s+" Msg:"+e.message + " partitions:" + k.to_s + " table:" + @table
                     # reload shard
                     if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
-                      @log.warn "write failed, msg:" + e.message + ", reload shard."
+                      @log.warn "Reload shard."
                       @client.loadShard(@shard_number)
                       @client.waitForShardLoad
                     elsif e.message.include? "NoSuchPartition"
                       begin
                         @client.addPartition(k)
-                        @log.info "add partition "+ k
+                        @log.info "Add partition "+ k + " table:" + @table
                       rescue => ex
-                        @log.error "add partition failed"+ ex.message
+                        @log.error "Add partition failed"+ ex.message + " partitions:" + k.to_s + " table:" + @table
                       end
                     end
                     if retryTime > 0
-                      @log.warn "Fail to write, retry in " + @retry_interval.to_s + "sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
+                      @log.info "Retry in " + @retry_interval.to_s + "sec. Partitions:" + k.to_s + " table:" + @table
                       sleep(@retry_interval)
                       retryTime -= 1
                       retry
                     else
                       if (@abandon_mode)
-                        @log.error "Retry failed, abandon this pack. Msg:" + e.message
+                        @log.error "Retry failed, abandon this pack. Msg:" + e.message + " partitions:" + k.to_s + " table:" + @table
+                        @log.error v[sendCount*threadId..sendCount*(threadId+1)+restCount-1]
                       else
                         raise e
                       end
@@ -236,20 +246,22 @@ module Fluent
                   @client.createStreamArrayWriter().write(records[sendCount*threadId..sendCount*(threadId+1)+restCount-1])
                   @log.info "Successfully import "+(sendCount+restCount).to_s+" data to table:"+@table+" at threadId:"+threadId.to_s
                 rescue => e
+                  @log.warn "Fail to write, error at threadId:"+threadId.to_s+" Msg:"+e.message + " table:" + @table
                   # reload shard
                   if e.message.include? "ShardNotReady" or e.message.include? "InvalidShardId"
-                    @log.warn "write failed, msg:" + e.message + ", reload shard."
+                    @log.warn "Reload shard."
                     @client.loadShard(@shard_number)
                     @client.waitForShardLoad
                   end
                   if retryTime > 0
-                    @log.warn "Fail to write, retry in " + @retry_interval.to_s + "sec. Error at threadId:"+threadId.to_s+" Msg:"+e.message
+                    @log.info "Retry in " + @retry_interval.to_s + "sec. Table:" + @table
                     sleep(@retry_interval)
                     retryTime -= 1
                     retry
                   else
                     if (@abandon_mode)
-                      @log.error "Retry failed, abandon this pack. Msg:" + e.message
+                      @log.error "Retry failed, abandon this pack. Msg:" + e.message + " Table:" + @table
+                      @log.error records[sendCount*threadId..sendCount*(threadId+1)+restCount-1]
                     else
                       raise e
                     end
@@ -316,6 +328,9 @@ module Fluent
         rescue => e
           raise e.to_s
         end
+      end
+      if (@data_encoding != nil)
+        OdpsDatahub::OdpsConfig::setEncode(@data_encoding)
       end
       #初始化各个table object
       @tables.each { |te|

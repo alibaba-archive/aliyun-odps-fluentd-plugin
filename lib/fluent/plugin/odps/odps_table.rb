@@ -85,8 +85,9 @@ module OdpsDatahub
         end
       elsif value != false and value != true
         raise "value must be bool or string[true,false], idx:" + idx.to_s + " value:" + value.to_s
+      else
+        setValue(idx, value)
       end
-      setValue(idx, value)
     end
 
     def setDateTime(idx, value)
